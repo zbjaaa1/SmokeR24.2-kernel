@@ -1,5 +1,5 @@
 config EXFAT_FS
-	tristate
+	tristate "exFAT filesystem"
 	default y
 	select NLS
 	select NLS_UTF8
