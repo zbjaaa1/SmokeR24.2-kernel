@@ -38,6 +38,8 @@
 #include <media/isc-dev.h>
 #include <media/isc-mgr.h>
 
+#include <asm/barrier.h>
+
 #include "isc-mgr-priv.h"
 
 #define PW_ON(flag)	((flag) ? 0 : 1)
@@ -247,6 +249,7 @@ int isc_mgr_power_up(struct isc_mgr_priv *isc_mgr, unsigned long arg)
 		goto pwr_up_end;
 
 	if (arg < pd->num_pwr_gpios) {
+		speculation_barrier();
 		gpio_set_value(pd->pwr_gpios[arg], PW_ON(pd->pwr_flags[arg]));
 		isc_mgr->pwr_state |= BIT(arg);
 		return 0;
@@ -271,6 +274,7 @@ int isc_mgr_power_down(struct isc_mgr_priv *isc_mgr, unsigned long arg)
 	dev_dbg(isc_mgr->dev, "%s - %lx\n", __func__, arg);
 
 	if (arg < pd->num_pwr_gpios) {
+		speculation_barrier();
 		gpio_set_value(pd->pwr_gpios[arg], PW_OFF(pd->pwr_flags[arg]));
 		isc_mgr->pwr_state &= ~BIT(arg);
 		return 0;
