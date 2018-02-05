@@ -119,6 +119,13 @@
 	.quad	9999b,l;			\
 	.previous
 
+ /*
+  * Value prediction barrier
+  */
+	.macro	csdb
+	hint	#20
+	.endm
+
 /*
  * Register aliases.
  */
