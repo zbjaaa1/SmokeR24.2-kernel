@@ -770,7 +770,7 @@ CONFIG_L2TP_IP=y
 CONFIG_SCHED_MC=y
 
 # SMT (Hyperthreading) scheduler support
-CONFIG_SCHED_SMT=y
+#CONFIG_SCHED_SMT=y
 
 # cleancache
 CONFIG_CLEANCACHE=y
