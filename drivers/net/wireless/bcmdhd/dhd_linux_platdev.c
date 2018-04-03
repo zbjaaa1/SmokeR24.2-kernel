@@ -254,23 +254,64 @@ int wifi_platform_bus_enumerate(wifi_adapter_info_t *adapter, bool device_presen
 	return err;
 }
 
+#define MAC_ADDRESS_LEN 17
 static int wifi_get_mac_addr(unsigned char *buf)
 {
-	struct device_node *dt_node;
-	const void *mac_addr;
+        struct device_node *dt_node;
+        const char *fname;
+        int i;
+        struct file *fp = NULL;
+        unsigned char c_mac[MAC_ADDRESS_LEN];
+        unsigned char ch;
 
-	dt_node = of_find_compatible_node(NULL, NULL, "android,bcmdhd_wlan");
-	if (!dt_node)
-		return -ENOENT;
-	mac_addr = of_get_mac_address(dt_node);
-	of_node_put(dt_node);
-	if (!mac_addr)
-		return -ENOENT;
-	memcpy(buf, mac_addr, 6);
-	pr_info("%s: %02x:%02x:%02x:%02x:%02x:%02x\n",
-		__func__, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+        dt_node = of_find_compatible_node(NULL, NULL, "android,bcmdhd_wlan");
+        if (!dt_node)
+                return -ENOENT;
+        fname = of_get_property(dt_node, "mac-address-file", NULL);
+        of_node_put(dt_node);
+        if (!fname)
+                return -ENOENT;
 
-	return 0;
+        fp = dhd_os_open_image(fname);
+        if (fp == NULL) {
+                DHD_ERROR(("%s: unable to open %s\n",
+                        __FUNCTION__, fname));
+                return -ENOENT;
+        }
+        if (dhd_os_get_image_block(c_mac, MAC_ADDRESS_LEN, fp) !=
+							MAC_ADDRESS_LEN) {
+                DHD_ERROR(("%s: Error reading from %s\n",
+                        __FUNCTION__, fname));
+                dhd_os_close_image(fp);
+                return -ENOENT;
+        }
+        dhd_os_close_image(fp);
+        for (i = 0; i < MAC_ADDRESS_LEN; i += 3) {
+                if (!bcm_isxdigit(c_mac[i])) {
+                        DHD_ERROR(("%s: Wrong format in %s\n",
+                                __FUNCTION__, fname));
+                        return -ENOENT;
+                }
+                if (!bcm_isxdigit(c_mac[i+1])) {
+                        DHD_ERROR(("%s: Wrong format in %s\n",
+                                __FUNCTION__, fname));
+                        return -ENOENT;
+                }
+                if (((i+2) < MAC_ADDRESS_LEN) && (c_mac[i+2] != ':')) {
+                        DHD_ERROR(("%s: Wrong format in %s\n",
+                                __FUNCTION__, fname));
+                        return -ENOENT;
+                }
+                c_mac[i] = bcm_isdigit(c_mac[i]) ? c_mac[i]-'0' : bcm_toupper(c_mac[i])-'A'+10;
+                c_mac[i+1] = bcm_isdigit(c_mac[i+1]) ? c_mac[i+1]-'0' : bcm_toupper(c_mac[i+1])-'A'+10;
+                buf[i/3] = c_mac[i]*16 + c_mac[i+1];
+
+        }
+
+        pr_info("%s: %02x:%02x:%02x:%02x:%02x:%02x\n",
+                __func__, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+
+        return 0;
 }
 
 int wifi_platform_get_mac_addr(wifi_adapter_info_t *adapter, unsigned char *buf)
