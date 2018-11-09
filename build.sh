@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export ARCH="arm"
-export KBUILD_BUILD_HOST="eOS-0.4.1-Loki"
+export KBUILD_BUILD_HOST="eOS-5.0-Juno"
 export KBUILD_BUILD_USER="arttttt"
 
 clean_build=0
@@ -9,7 +9,6 @@ config="tegra12_android_defconfig"
 dtb_name="tegra124-mocha.dtb"
 dtb_only=0
 kernel_name=$(git rev-parse --abbrev-ref HEAD)
-build_log="build.log"
 threads=5
 toolchain="$HOME/PROJECTS/MIPAD/linaro-4.9.4/bin/arm-linux-gnueabihf-"
 
@@ -121,45 +120,7 @@ function compile()
 
 	generate_version
 	make $config
-	make -j$threads ARCH=$ARCH CROSS_COMPILE=$toolchain zImage 2> $build_log
-
-	local i=0
-	while read line; do 
-		error=$(echo "$line" | awk '/warning:/{print}')
-		if [[ "$error" != "" ]]; then
-			if [[ $i == 0 ]]; then
-				printfc "\n\nСписок предупреждений компилятора:\n\n" $HEAD
-				i+=1
-			fi;
-			printfc "$error\n" $WARNING
-			error=""
-		fi;
-	done < $KERNEL_DIR/$build_log
-
-	local error_status=0
-
-	local i=0
-	while read line; do 
-		error=$(echo "$line" | awk '/error:/{print}')
-		if [[ "$error" != "" ]]; then
-			if [[ $i == 0 ]]; then
-				printfc "\n\nСписок ошибок компиляции:\n\n" $HEAD
-				i+=1
-			fi;
-			printfc "$error\n" $ERROR
-			error=""
-			error_status=1
-		fi;
-	done < $KERNEL_DIR/$build_log
-
-	if [[ -f "$build_log" ]]; then
-		rm $build_log
-	fi;
-
-	if [[ "$error_status" == 1 ]]; then
-		printfc "\n\nСборка ядра прервана\n" $ERROR
-		return
-	fi;
+	make -j$threads ARCH=$ARCH CROSS_COMPILE=$toolchain zImage
 
 	printfc "\nКомпиляция дерева устройства\n\n" $HEAD
 
