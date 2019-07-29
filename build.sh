@@ -10,7 +10,6 @@ dtb_name="tegra124-mocha.dtb"
 dtb_only=0
 kernel_name=$(git rev-parse --abbrev-ref HEAD)
 cpus_count=$(grep -c ^processor /proc/cpuinfo)
-toolchain="$HOME/PROJECTS/MIPAD/linaro-4.9.4/bin/arm-linux-gnueabihf-"
 
 KERNEL_DIR=$PWD
 ORIGINAL_OUTPUT_DIR="$KERNEL_DIR/arch/$ARCH/boot"
@@ -41,7 +40,9 @@ function generate_version()
 		local updated_kernel_name
 		eval "$(awk -F"="  '/kernel.string/{print "anykernel_name="$2}' $KERNEL_DIR/anykernel/anykernel.sh)"
 		eval "$(echo $kernel_name | awk -F"-"  '{print "current_branch="$2}')"
-		if [[ "$current_branch" != "stable" ]]; then
+		if [[ ("$current_branch" == "stable" || "$current_branch" == "staging") ]]; then
+			updated_kernel_name=$kernel_name
+		else
 			if [[ ! -f "$KERNEL_DIR/version" ]]; then
 				echo "build_number=0" > $KERNEL_DIR/version
 			fi;
@@ -51,10 +52,13 @@ function generate_version()
 			eval "$(awk -F"="  '{print "current_build="$2}' $KERNEL_DIR/version)"
 			export LOCALVERSION="-$current_branch-build$current_build"
 			updated_kernel_name=$kernel_name"-build"$current_build
-		else
-			updated_kernel_name=$kernel_name
 		fi;
-			sed -i s/$anykernel_name/$updated_kernel_name/ $KERNEL_DIR/anykernel/anykernel.sh
+
+		if [[ $CI == true ]]; then
+			updated_kernel_name="SmokeR24.1"
+		fi
+
+		sed -i s/$anykernel_name/$updated_kernel_name/ $KERNEL_DIR/anykernel/anykernel.sh
 	fi;
 }
 
@@ -86,7 +90,13 @@ function make_zip()
 	fi
 
 	cd $KERNEL_DIR/anykernel
-	local zip_name="$kernel_name($(date +'%d.%m.%Y-%H.%M')).zip"
+
+	if [[ $CI == true ]]; then
+		zip_name="SmokeR24.1.zip"
+	else
+		zip_name="$kernel_name($(date +'%d.%m.%Y-%H.%M')).zip"
+	fi
+
 	zip -r $zip_name *
 
 	if [[ -f "$PWD/$zip_name" ]]; then
@@ -179,4 +189,11 @@ function main()
 	esac
 }
 
-main
+if [[ $CI == true ]]; then
+	clean_build=1
+	toolchain="arm-linux-gnueabihf-"
+	compile
+else
+	toolchain="$HOME/PROJECTS/MIPAD/linaro-4.9.4/bin/arm-linux-gnueabihf-"
+	main
+fi
