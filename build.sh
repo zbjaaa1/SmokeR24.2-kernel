@@ -72,6 +72,9 @@ function make_zip()
 	fi;
 
 	if [[ -f "$ORIGINAL_OUTPUT_DIR/zImage" ]]; then
+		if [[ ! -d "$PWD/anykernel/kernel/" ]]; then
+			mkdir $PWD/anykernel/kernel/
+		fi;
 		mv $ORIGINAL_OUTPUT_DIR/zImage $PWD/anykernel/kernel/
 	else
 		if [[ $dtb_only == 0 ]]; then
@@ -92,7 +95,7 @@ function make_zip()
 	cd $KERNEL_DIR/anykernel
 
 	if [[ $CI == true ]]; then
-		zip_name="SmokeR24.1.zip"
+		zip_name=$KERNEL_ZIP
 	else
 		zip_name="$kernel_name($(date +'%d.%m.%Y-%H.%M')).zip"
 	fi
