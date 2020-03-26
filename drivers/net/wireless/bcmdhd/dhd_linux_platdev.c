@@ -264,8 +264,10 @@ static int wifi_get_mac_addr(unsigned char *buf)
 		return -ENOENT;
 	mac_addr = of_get_mac_address(dt_node);
 	of_node_put(dt_node);
-	if (!mac_addr)
+	if (!mac_addr) {
+		pr_debug("%s: can't get mac address\n", __func__);
 		return -ENOENT;
+	}
 	memcpy(buf, mac_addr, 6);
 	pr_info("%s: %02x:%02x:%02x:%02x:%02x:%02x\n",
 		__func__, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);

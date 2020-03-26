@@ -88,7 +88,7 @@ static int _of_get_mac_addr_file(const char *filename, unsigned char *buf)
 			__FUNCTION__);
 		ret = -ENOENT;
 	} else {
-		pr_debug("%s: using mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+		pr_info("%s: using mac %02x:%02x:%02x:%02x:%02x:%02x\n",
 			__FUNCTION__,
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		buf[0] = (unsigned char) mac[0];
@@ -250,10 +250,16 @@ const void *of_get_mac_address(struct device_node *np)
 			__func__, s);
 		err = _of_get_mac_addr_file(s, mac_addr);
 		if (err == 0) {
+			pr_info("%s: got mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+				__func__, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 			pp = _of_set_mac_address(np, mac_addr);
 			if (pp && (pp->length == 6) &&
 				is_valid_ether_addr(pp->value))
 				return pp->value;
+		}
+		else {
+			pr_debug("%s: can't get mac address\n",
+				__func__);
 		}
 	}
 
