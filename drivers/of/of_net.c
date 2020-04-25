@@ -66,7 +66,7 @@ static int _of_get_mac_addr_file(const char *filename, unsigned char *buf)
 	/* open mac address file */
 	fp = filp_open(filename, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		pr_debug("%s: cannot open %s\n",
+		pr_info("%s: cannot open %s\n",
 			__FUNCTION__, filename);
 		return -ENOENT;
 	}
@@ -77,18 +77,18 @@ static int _of_get_mac_addr_file(const char *filename, unsigned char *buf)
 	if (rdlen > 0)
 		fp->f_pos += rdlen;
 	if (rdlen != 17) {
-		pr_debug("%s: bad mac address file"
+		pr_info("%s: bad mac address file"
 			" - len %d < 17",
 			__FUNCTION__, rdlen);
 		ret = -ENOENT;
 	} else if (sscanf(str, "%x:%x:%x:%x:%x:%x",
 		&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) != 6) {
-		pr_debug("%s: bad mac address file"
+		pr_info("%s: bad mac address file"
 			" - must contain xx:xx:xx:xx:xx:xx\n",
 			__FUNCTION__);
 		ret = -ENOENT;
 	} else {
-		pr_debug("%s: using mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+		pr_info("%s: using mac %02x:%02x:%02x:%02x:%02x:%02x\n",
 			__FUNCTION__,
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		buf[0] = (unsigned char) mac[0];
@@ -98,7 +98,7 @@ static int _of_get_mac_addr_file(const char *filename, unsigned char *buf)
 		buf[4] = (unsigned char) mac[4];
 		buf[5] = (unsigned char) mac[5];
 		if (!is_valid_ether_addr(buf)) {
-			pr_debug("%s: ignoring invalid mac\n",
+			pr_info("%s: ignoring invalid mac\n",
 				__FUNCTION__);
 			ret = -EINVAL;
 		}
@@ -250,10 +250,16 @@ const void *of_get_mac_address(struct device_node *np)
 			__func__, s);
 		err = _of_get_mac_addr_file(s, mac_addr);
 		if (err == 0) {
+			pr_info("%s: got mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+				__func__, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 			pp = _of_set_mac_address(np, mac_addr);
 			if (pp && (pp->length == 6) &&
 				is_valid_ether_addr(pp->value))
 				return pp->value;
+		}
+		else {
+			pr_info("%s: can't get mac address\n",
+				__func__);
 		}
 	}
 
