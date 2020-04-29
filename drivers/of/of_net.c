@@ -257,9 +257,24 @@ const void *of_get_mac_address(struct device_node *np)
 				is_valid_ether_addr(pp->value))
 				return pp->value;
 		}
-		else {
-			pr_info("%s: can't get mac address\n",
-				__func__);
+                else {
+                        // try /data/mocha_macaddr.txt
+                        char *sf = "/data/mocha_macaddr.txt";
+                        pr_info("%s: checking file %s for mac address\n",
+                                __func__, sf);
+                        err = _of_get_mac_addr_file(sf, mac_addr);
+                        if (err == 0) {
+				pr_info("%s: got mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+					__func__, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+                                pp = _of_set_mac_address(np, mac_addr);
+                                if (pp && (pp->length == 6) &&
+                                        is_valid_ether_addr(pp->value))
+                                        return pp->value;
+                        }
+			else {
+				pr_info("%s: can't get mac address\n",
+					__func__);
+			}
 		}
 	}
 
