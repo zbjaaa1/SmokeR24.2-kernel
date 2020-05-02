@@ -68,8 +68,14 @@
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "lowmemorykiller."
 
+/* The minimum number of pages to free per reclaim */
+#define MIN_FREE_PAGES (CONFIG_ANDROID_SIMPLE_LMK_MINFREE * SZ_1M / PAGE_SIZE)
+
 /* Kill up to this many victims per reclaim */
 #define MAX_VICTIMS 1024
+
+/* Timeout in jiffies for each reclaim */
+#define RECLAIM_EXPIRES msecs_to_jiffies(CONFIG_ANDROID_SIMPLE_LMK_TIMEOUT_MSEC)
 
 struct victim_info {
 	struct task_struct *tsk;
@@ -103,59 +109,9 @@ static DEFINE_RWLOCK(mm_free_lock);
 static int victims_to_kill;
 static atomic_t needs_reclaim = ATOMIC_INIT(0);
 static atomic_t nr_killed = ATOMIC_INIT(0);
-static unsigned long slmk_minfree_pages = CONFIG_ANDROID_SIMPLE_LMK_MINFREE * SZ_1M / PAGE_SIZE;
-static unsigned long slmk_reclaim_expire = 0;
 
 static int slmk_count[ARRAY_SIZE(adjs)];
 module_param_array(slmk_count, int, NULL, S_IRUGO);
-
-static unsigned int slmk_minfree = CONFIG_ANDROID_SIMPLE_LMK_MINFREE;
-
-static int set_slmk_minfree(const char *val, const struct kernel_param *kp)
-{
-	int n = 0, ret;
- 
-	ret = kstrtoint(val, 10, &n);
-	if (ret != 0 || n < 8 || n > 512)
-		return -EINVAL;
- 
-	slmk_minfree = n;
-	slmk_minfree_pages = slmk_minfree * SZ_1M / PAGE_SIZE;
-	pr_info("slmk_minfree = %d\n", slmk_minfree);
-
-	return 0;
-}
-
-static const struct kernel_param_ops slmk_minfree_param_ops = {
-	.set	= set_slmk_minfree,
-	.get	= param_get_uint,
-};
-
-module_param_cb(slmk_minfree, &slmk_minfree_param_ops, &slmk_minfree, 0644);
-
-static unsigned int slmk_timeout = CONFIG_ANDROID_SIMPLE_LMK_TIMEOUT_MSEC;
-
-static int set_slmk_timeout(const char *val, const struct kernel_param *kp)
-{
-	int n = 0, ret;
- 
-	ret = kstrtoint(val, 10, &n);
-	if (ret != 0 || n < 50 || n > 1000)
-		return -EINVAL;
- 
-	slmk_timeout = n;
-	slmk_reclaim_expire = msecs_to_jiffies(slmk_timeout);
-	pr_info("slmk_timeout = %d\n", slmk_timeout);
-
-	return 0;
-}
-
-static const struct kernel_param_ops slmk_timeout_param_ops = {
-	.set	= set_slmk_timeout,
-	.get	= param_get_uint,
-};
-
-module_param_cb(slmk_timeout, &slmk_timeout_param_ops, &slmk_timeout, 0644);
 
 static int victim_size_cmp(const void *lhs_ptr, const void *rhs_ptr)
 {
@@ -342,7 +298,7 @@ static void scan_and_kill(unsigned long pages_needed)
 	}
 
 	/* Wait until all the victims die or until the timeout is reached */
-	ret = wait_for_completion_timeout(&reclaim_done, slmk_reclaim_expire);
+	ret = wait_for_completion_timeout(&reclaim_done, RECLAIM_EXPIRES);
 	write_lock(&mm_free_lock);
 	if (!ret) {
 		/* Extra clean-up is needed when the timeout is hit */
@@ -365,7 +321,7 @@ static int simple_lmk_reclaim_thread(void *data)
 
 	while (1) {
 		wait_event(oom_waitq, atomic_read_acquire(&needs_reclaim));
-		scan_and_kill(slmk_minfree_pages);
+		scan_and_kill(MIN_FREE_PAGES);
 		atomic_set_release(&needs_reclaim, 0);
 	}
 
@@ -408,8 +364,6 @@ static int simple_lmk_init_set(const char *val, const struct kernel_param *kp)
 	struct task_struct *thread;
 
 	if (!atomic_cmpxchg(&init_done, 0, 1)) {
-		slmk_minfree_pages = slmk_minfree * SZ_1M / PAGE_SIZE;
-		slmk_reclaim_expire = msecs_to_jiffies(slmk_timeout);
 		thread = kthread_run(simple_lmk_reclaim_thread,
 						   NULL, "simple_lmkd");
 		BUG_ON(IS_ERR(thread));
